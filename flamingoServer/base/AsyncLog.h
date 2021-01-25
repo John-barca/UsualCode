@@ -1,3 +1,6 @@
+#ifndef __ASYNC_LOG_H__
+#define __ASYNC_LOG_H__
+
 #include <stdio.h>
 #include <string>
 #include <list>
@@ -5,10 +8,8 @@
 #include <memory>
 #include <mutex>
 #include <condition_variable>
-#include <unique_ptr>
 
 #define LOG_API
-
 // 枚举
 // 日志等级划分
 enum LOG_LEVEL {
@@ -85,7 +86,7 @@ class LOG_API CAsyncLog {
     static std::string strFIleNamePID; // 文件名中的进程 PID
     static bool truncateLongLog; // 长日志是否截断
     static LOG_LEVEL currentLevel; // 当前日志级别
-    static long long fileRollSize; // 单日志文件最大字节数
+    static long long fileRollSize; // 日志文件最大字节数
     static long long curretWrittenSize; // 当前已经写入文件的字节数
     static std::list<std::string> listWaitToWrite; // 待写入的日志
     static std::unique_ptr<std::thread> spWriteThread; // 写入日志线程的智能指针
