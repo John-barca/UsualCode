@@ -87,7 +87,7 @@ class LOG_API CAsyncLog {
     static bool truncateLongLog; // 长日志是否截断
     static LOG_LEVEL currentLevel; // 当前日志级别
     static int64_t fileRollSize; // 日志文件最大字节数
-    static int64_t curretWrittenSize; // 当前已经写入文件的字节数
+    static int64_t currentWrittenSize; // 当前已经写入文件的字节数
     static std::list<std::string> listWaitToWrite; // 待写入的日志
     static std::unique_ptr<std::thread> spWriteThread; // 写入日志线程的智能指针
     static std::mutex mutexWrite; // 写入互斥锁
