@@ -63,3 +63,95 @@ int msg = redisTemplate.opsForValue().increment("msg",1);
 ```
 命令与数据类型有对应（多对多）关系（比如set处理不了集合），数据类型根据不同情况可以使用不同的数据结构来存储。
 list 的实现方式是在代码中直接指定的。而 redis 的 list 会自动根据元素特点来决定使用 ziplist 或 linkedlist
+
+说到 Redis 的数据结构，一般指 Redis 的5种常见数据结构：字符串(String)、列表(List)、散列(Hash)、集合(Set)、有序集合(Sorted Set)，以及他们的特点和运用场景。不过它们是 Redis 对外暴露的数据结构，用于 API 的操作，下面来看一看组成它们的底层数据结构
+- 简单动态字符串(SDS)
+- 链表
+- 字典
+- 跳跃表
+- 整数集合
+- 压缩列表
+
+### 简单动态字符串(SDS
+Redis 使用 C 语言实现的，但是 Redis 并没有使用 C 的字符串表示 (C字符串是以 \0 空字符结尾的字符数组)，而是自己在底层构建了一种简单动态字符串(simple dynamic string, SDS)的抽象类型，并作为 Redis 的默认字符串表示
+
+在 Redis 中，包含字符串值的键值对底层都是用 SDS 实现的。
+
+#### SDS的定义
+
+SDS的结构定义在 sds.h 文件中，SDS的定义在 Redis 3.2 版本之后有一些改变，由一种数据结构变成了5种数据结构，会根据 SDS 存储的内容长度来选择不同的结构，以达到节省内存的效果，具体结构定义，我们看以下代码：
+```
+// 3.0 
+struct sdshdr {
+    // 记录 buf 数组中已使用字节的数量，即 SDS 所保存字符串的长度
+    unsigned int len;
+    // 记录 buf 数组中未使用的字节数量
+    unsigned int free;
+    // 字节数组，用于保存字符串
+    char buf[];
+};
+
+// 3.2
+struct __attribute__ ((__packed__)) sdshdr5 {
+    unsigned char flags;
+    char buf[];
+};
+
+struct __attribute__ ((__packed__)) sdshdr8 {
+    uint8_t len;
+    uint8_t alloc;
+    unsigned char flags;
+    char buf[];
+};
+
+struct __attribute__ ((__packed__)) sdshdr16 {
+    uint16_t len;
+    uint16_t alloc;
+    unsigned char flags;
+    char buf[];
+};
+
+struct __attribute__ ((__packed__)) sdshdr32 {
+    uint32_t len;
+    uint16_t alloc;
+    unsigned char flags;
+    char buf[];
+};
+
+struct __attribute__ ((__packed__)) sdshdr64 {
+    uint32_t len;
+    uint16_t alloc;
+    unsigned char flags;
+    char buf[];
+};
+```
+3.2版本之后，会根据字符串的长度来选择对应的数据结构
+```
+static inline char sdsReqType(size_t string_size) {
+    if (string_size < 1 << 5) 
+        return SDS_TYPE_5;
+    if (string_size < 1 << 8) 
+        return SDS_TYPE_8;
+    if (string_size < 1 << 16) 
+        return SDS_TYPE_16;
+    if (string_size < 1 << 32) 
+        return SDS_TYPE_32;
+    return SDS_TYPE_64;
+}
+```
+下面是3.2版本的 sdshdr8 一个示例: len为5，alloc为8，flags为1，buf[]为|'R'|'e'|'d'|'i'|'s'|'\0'| | | |。空白处表示未使用空间，是 Redis 优化的空间策略，给字符串的操作留有余地，保证安全提高效率。
+- len：记录当前已使用的字节数(不包括'\0')，获取 SDS 长度的复杂度 O(1)
+- alloc：记录当前字节数组总共分配的字节数量(不包括'\0')
+- flags：标记当前字节数组的属性，是 sdshdr8 还是 sdshdr16 等，flags 值的定义可以看下面代码
+- buf：字节数组，用于保存字符串，包括结尾空白字符 '\0'
+```
+// flags 值定义
+#define SDS_TYPE_5 0
+#define SDS_TYPE_8 1
+#define SDS_TYPE_16 2
+#define SDS_TYPE_32 3
+#define SDS_TYPE_64 4
+```
+
+#### SDS 与 C 字符串的区别
+C语言使用长度为 N + 1 的字符数组来表示长度为 N 的字符串，字符数组的最后一个元素为空字符'\0'，但是这种简单的
