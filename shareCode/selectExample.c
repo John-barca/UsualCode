@@ -73,7 +73,7 @@ int main () {
                         client[i] = -1;
                     } else {
                         buf[n] = '\0';
-                        printf("Socket %d say: %s\n", sockfd.buf);
+                        printf("Socket %d say: %s\n", sockfd, buf);
                         write(sockfd, buf, n);
                     }
                     nready--;
